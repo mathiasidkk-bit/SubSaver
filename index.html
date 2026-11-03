@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SubSaver – prototype</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --text:#1c1f2a; --muted:#6b7280; --accent:#5b5bf0; --good:#16a34a; --line:#e5e7eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12131a; --card:#1c1e29; --text:#f1f2f6; --muted:#9aa0b0; --line:#2b2e3b; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:720px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { margin:8px 0 2px; } .sub { color:var(--muted); margin:0 0 18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .total { display:flex; gap:12px; flex-wrap:wrap; }
+  .total div { flex:1; min-width:140px; } .big { font-size:28px; font-weight:700; color:var(--accent); }
+  label { font-size:13px; color:var(--muted); display:block; margin-bottom:4px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; } .row > * { flex:1; min-width:120px; }
+  select,input,button { padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--text); font-size:15px; }
+  button { background:var(--accent); color:#fff; border:none; cursor:pointer; font-weight:600; }
+  button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); flex:0; }
+  ul { list-style:none; padding:0; margin:0; } li { display:flex; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--line); align-items:center; }
+  li:last-child { border-bottom:none; } .muted { color:var(--muted); font-size:13px; }
+  .tag { font-size:11px; padding:2px 6px; border-radius:6px; background:var(--line); color:var(--muted); }
+  .save { color:var(--good); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>💸 SubSaver</h1>
+  <p class="sub">Stop med at betale for meget. (Prototype – priser er eksempler)</p>
+
+  <div class="card total">
+    <div><label>Pr. måned</label><div class="big" id="month">0 kr.</div></div>
+    <div><label>Pr. år</label><div class="big" id="year">0 kr.</div></div>
+    <div><label>Abonnementer</label><div class="big" id="count">0</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Tilføj abonnement</h3>
+    <div class="row">
+      <div><label>Tjeneste</label><select id="service"></select></div>
+      <div><label>Pris (kr.)</label><input id="price" type="number" min="0" step="1"></div>
+      <div><label>Betales</label>
+        <select id="interval"><option value="1">Månedligt</option><option value="3">Kvartalsvis</option><option value="12">Årligt</option></select></div>
+      <div><label>Næste betaling</label><input id="next" type="date"></div>
+    </div>
+    <p><button id="add">Tilføj</button></p>
+  </div>
+
+  <div class="card"><h3>Kommende betalinger</h3><ul id="list"></ul></div>
+  <div class="card"><h3>Spar penge</h3><ul id="tips"></ul>
+    <p class="muted">Tilbud markeret "Annonce" er sponsorerede.</p></div>
+</main>
+
+<script>
+// EKSEMPELDATA – verificér priser og tilbud før brug i produktion
+const CATALOG = [
+  { name:"Netflix",    cat:"Streaming", price:119 },
+  { name:"Viaplay",    cat:"Streaming", price:149, offer:"3 måneder gratis" },
+  { name:"Disney+",    cat:"Streaming", price:99 },
+  { name:"HBO Max",    cat:"Streaming", price:99 },
+  { name:"TV 2 Play",  cat:"Streaming", price:99 },
+  { name:"SkyShowtime",cat:"Streaming", price:79,  offer:"7 dages gratis prøve" },
+  { name:"Spotify",    cat:"Musik",     price:109 },
+  { name:"YouTube Premium", cat:"Musik", price:99 },
+  { name:"Apple Music",cat:"Musik",     price:109 },
+  { name:"iCloud+",    cat:"Cloud",     price:39 },
+  { name:"Google One", cat:"Cloud",     price:20 },
+];
+const KEY = "subsaver.v1";
+let subs = [];
+try { subs = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { subs = []; }
+const $ = id => document.getElementById(id);
+const kr = n => Math.round(n).toLocaleString("da-DK") + " kr.";
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(subs)); } catch (e) {} };
+const monthly = s => s.price / s.interval;
+const todayISO = () => new Date().toISOString().slice(0,10);
+
+$("service").innerHTML = CATALOG.map((c,i) => `<option value="${i}">${c.name}</option>`).join("");
+const fillPrice = () => { $("price").value = CATALOG[$("service").value].price; };
+$("service").onchange = fillPrice; fillPrice(); $("next").value = todayISO();
+
+$("add").onclick = () => {
+  const c = CATALOG[$("service").value];
+  const price = Number($("price").value);
+  if (!(price >= 0) || !$("next").value) return;
+  subs.push({ id:Date.now(), name:c.name, cat:c.cat, price, interval:Number($("interval").value), next:$("next").value });
+  save(); render();
+};
+
+function render() {
+  const m = subs.reduce((a,s) => a + monthly(s), 0);
+  $("month").textContent = kr(m); $("year").textContent = kr(m*12); $("count").textContent = subs.length;
+
+  const sorted = [...subs].sort((a,b) => a.next.localeCompare(b.next));
+  $("list").innerHTML = sorted.length ? sorted.map(s => {
+    const days = Math.ceil((new Date(s.next) - new Date(todayISO())) / 864e5);
+    const when = days < 0 ? "forfalden" : days === 0 ? "i dag" : `om ${days} dage`;
+    return `<li><div><strong>${s.name}</strong><div class="muted">${s.next} · ${when}</div></div>
+      <div>${kr(s.price)} <span class="tag">${s.interval===1?"md.":s.interval===3?"kvartal":"år"}</span>
+      <button class="ghost" data-id="${s.id}">✕</button></div></li>`;
+  }).join("") : `<li class="muted">Ingen abonnementer endnu.</li>`;
+  document.querySelectorAll("button[data-id]").forEach(b => b.onclick = () => {
+    subs = subs.filter(s => s.id !== Number(b.dataset.id)); save(); render();
+  });
+
+  // Tips: billigere alternativer i samme kategori + tilbud
+  const tips = [];
+  subs.forEach(s => {
+    CATALOG.filter(c => c.cat === s.cat && c.name !== s.name && c.price < monthly(s)).forEach(c => {
+      tips.push(`<li><div>Skift <strong>${s.name}</strong> → <strong>${c.name}</strong>
+        <div class="muted">${c.offer ? `<span class="tag">Annonce</span> ${c.offer}` : "Billigere alternativ"}</div></div>
+        <span class="save">−${kr((monthly(s)-c.price)*12)}/år</span></li>`);
+    });
+  });
+  const owned = new Set(subs.map(s => s.name));
+  CATALOG.filter(c => c.offer && !owned.has(c.name)).forEach(c =>
+    tips.push(`<li><div><strong>${c.name}</strong><div class="muted"><span class="tag">Annonce</span> ${c.offer}</div></div></li>`));
+  $("tips").innerHTML = tips.join("") || `<li class="muted">Tilføj abonnementer for at få forslag.</li>`;
+}
+render();
+</script>
+</body>
+</html>
