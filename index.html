@@ -5,13 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SubSaver – prototype</title>
 <style>
-  :root { --bg:#f6f7fb; --card:#fff; --text:#1c1f2a; --muted:#6b7280; --accent:#5b5bf0; --good:#16a34a; --line:#e5e7eb; }
+  :root { --bg:#f6f7fb; --card:#fff; --text:#1c1f2a; --muted:#6b7280; --accent:#5b5bf0; --good:#16a34a; --bad:#dc2626; --warn:#d97706; --line:#e5e7eb; }
   @media (prefers-color-scheme: dark) { :root { --bg:#12131a; --card:#1c1e29; --text:#f1f2f6; --muted:#9aa0b0; --line:#2b2e3b; } }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--text); }
-  main { max-width:720px; margin:0 auto; padding:20px 16px 60px; }
-  h1 { margin:8px 0 2px; } .sub { color:var(--muted); margin:0 0 18px; }
+  main { max-width:760px; margin:0 auto; padding:20px 16px 60px; }
+  h1 { margin:8px 0 2px; } h3 { margin:0 0 10px; } .sub { color:var(--muted); margin:0 0 14px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .topbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .banner { background:#eef2ff; color:#3730a3; border-radius:10px; padding:10px 12px; margin-bottom:14px; font-size:14px; }
+  @media (prefers-color-scheme: dark) { .banner { background:#25275a; color:#c7d2fe; } }
   .total { display:flex; gap:12px; flex-wrap:wrap; }
   .total div { flex:1; min-width:140px; } .big { font-size:28px; font-weight:700; color:var(--accent); }
   label { font-size:13px; color:var(--muted); display:block; margin-bottom:4px; }
@@ -19,10 +22,14 @@
   select,input,button { padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--text); font-size:15px; }
   button { background:var(--accent); color:#fff; border:none; cursor:pointer; font-weight:600; }
   button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); flex:0; }
+  button.ok { background:var(--good); } button.no { background:var(--bad); }
   ul { list-style:none; padding:0; margin:0; } li { display:flex; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--line); align-items:center; }
   li:last-child { border-bottom:none; } .muted { color:var(--muted); font-size:13px; }
   .tag { font-size:11px; padding:2px 6px; border-radius:6px; background:var(--line); color:var(--muted); }
-  .save { color:var(--good); font-weight:600; }
+  .save { color:var(--good); font-weight:600; } .over { color:var(--bad); font-weight:600; }
+  .bar { height:8px; background:var(--line); border-radius:6px; overflow:hidden; margin-top:6px; }
+  .bar i { display:block; height:100%; background:var(--good); } .bar i.over { background:var(--bad); }
+  .grow { flex:1; } .acts { display:flex; gap:6px; align-items:center; }
 </style>
 </head>
 <body>
@@ -30,16 +37,37 @@
   <h1>💸 SubSaver</h1>
   <p class="sub">Stop med at betale for meget. (Prototype – priser er eksempler)</p>
 
+  <div class="topbar">
+    <label for="viewAs" style="margin:0">Se som:</label>
+    <select id="viewAs"></select>
+  </div>
+  <div id="banner" class="banner" hidden></div>
+
   <div class="card total">
-    <div><label>Pr. måned</label><div class="big" id="month">0 kr.</div></div>
+    <div><label id="lblMonth">Pr. måned</label><div class="big" id="month">0 kr.</div></div>
     <div><label>Pr. år</label><div class="big" id="year">0 kr.</div></div>
     <div><label>Abonnementer</label><div class="big" id="count">0</div></div>
   </div>
 
+  <div class="card" id="familyCard">
+    <h3>👨‍👩‍👧 Familie</h3>
+    <ul id="members"></ul>
+    <h4 style="margin:14px 0 8px">Tilføj familiemedlem</h4>
+    <div class="row">
+      <div><label>Navn</label><input id="mName" placeholder="fx Emma"></div>
+      <div><label>Rolle</label><select id="mRole"><option value="barn">Barn</option><option value="voksen">Voksen</option></select></div>
+      <div><label>Månedligt budget (kr.)</label><input id="mBudget" type="number" min="0" step="10" placeholder="valgfrit"></div>
+    </div>
+    <p><button id="addMember">Tilføj medlem</button></p>
+  </div>
+
+  <div class="card" id="reqCard" hidden><h3 id="reqTitle">Anmodninger</h3><ul id="requests"></ul></div>
+
   <div class="card">
-    <h3>Tilføj abonnement</h3>
+    <h3 id="addTitle">Tilføj abonnement</h3>
     <div class="row">
       <div><label>Tjeneste</label><select id="service"></select></div>
+      <div id="ownerWrap"><label>Hvem bruger det?</label><select id="owner"></select></div>
       <div><label>Pris (kr.)</label><input id="price" type="number" min="0" step="1"></div>
       <div><label>Betales</label>
         <select id="interval"><option value="1">Månedligt</option><option value="3">Kvartalsvis</option><option value="12">Årligt</option></select></div>
@@ -48,9 +76,16 @@
     <p><button id="add">Tilføj</button></p>
   </div>
 
-  <div class="card"><h3>Kommende betalinger</h3><ul id="list"></ul></div>
-  <div class="card"><h3>Spar penge</h3><ul id="tips"></ul>
-    <p class="muted">Tilbud markeret "Annonce" er sponsorerede.</p></div>
+  <div class="card">
+    <div class="row" style="align-items:end"><h3 class="grow" id="listTitle">Kommende betalinger</h3>
+      <div id="filterWrap"><label>Vis</label><select id="filter"></select></div></div>
+    <ul id="list"></ul>
+  </div>
+
+  <div class="card" id="tipsCard"><h3>Spar penge</h3><ul id="tips"></ul>
+    <p class="muted">Tilbud markeret “Annonce” er sponsorerede. Der vises aldrig annoncer for børneprofiler.</p></div>
+
+  <p class="muted">Prototypen gemmer alt lokalt i din browser og har ingen rigtig login. I den færdige app styres roller (forælder/barn) af sikre konti.</p>
 </main>
 
 <script>
@@ -68,56 +103,160 @@ const CATALOG = [
   { name:"iCloud+",    cat:"Cloud",     price:39 },
   { name:"Google One", cat:"Cloud",     price:20 },
 ];
-const KEY = "subsaver.v1";
-let subs = [];
-try { subs = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { subs = []; }
+const KEY = "subsaver.v2";
 const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const kr = n => Math.round(n).toLocaleString("da-DK") + " kr.";
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(subs)); } catch (e) {} };
 const monthly = s => s.price / s.interval;
 const todayISO = () => new Date().toISOString().slice(0,10);
+const unit = i => i === 1 ? "md." : i === 3 ? "kvartal" : "år";
 
+function load() {
+  try { const v = JSON.parse(localStorage.getItem(KEY)); if (v && v.members) return v; } catch (e) {}
+  let old = [];
+  try { old = JSON.parse(localStorage.getItem("subsaver.v1")) || []; } catch (e) {}
+  return { members:[{ id:"me", name:"Mig", role:"voksen", budget:0 }], subs:old.map(s => ({ ...s, owner:"me" })), requests:[] };
+}
+let S = load();
+let viewAs = "me", filter = "all";
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+const member = id => S.members.find(m => m.id === id);
+const ownerName = id => id === "family" ? "Hele familien" : (member(id) ? member(id).name : "?");
+
+// ----- formular -----
 $("service").innerHTML = CATALOG.map((c,i) => `<option value="${i}">${c.name}</option>`).join("");
 const fillPrice = () => { $("price").value = CATALOG[$("service").value].price; };
 $("service").onchange = fillPrice; fillPrice(); $("next").value = todayISO();
+$("viewAs").onchange = e => { viewAs = e.target.value; filter = "all"; render(); };
+$("filter").onchange = e => { filter = e.target.value; render(); };
 
-$("add").onclick = () => {
-  const c = CATALOG[$("service").value];
-  const price = Number($("price").value);
-  if (!(price >= 0) || !$("next").value) return;
-  subs.push({ id:Date.now(), name:c.name, cat:c.cat, price, interval:Number($("interval").value), next:$("next").value });
+$("addMember").onclick = () => {
+  const name = $("mName").value.trim();
+  if (!name) return;
+  S.members.push({ id:"m" + Date.now(), name, role:$("mRole").value, budget:Number($("mBudget").value) || 0 });
+  $("mName").value = ""; $("mBudget").value = "";
   save(); render();
 };
 
-function render() {
-  const m = subs.reduce((a,s) => a + monthly(s), 0);
-  $("month").textContent = kr(m); $("year").textContent = kr(m*12); $("count").textContent = subs.length;
+$("add").onclick = () => {
+  const me = member(viewAs), parent = me.role === "voksen";
+  const c = CATALOG[$("service").value], price = Number($("price").value);
+  if (!(price >= 0) || !$("next").value) return;
+  const base = { name:c.name, cat:c.cat, price, interval:Number($("interval").value), next:$("next").value };
+  if (parent) S.subs.push({ id:Date.now(), ...base, owner:$("owner").value });
+  else S.requests.push({ id:Date.now(), ...base, owner:me.id });
+  save(); render();
+};
 
-  const sorted = [...subs].sort((a,b) => a.next.localeCompare(b.next));
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-a]");
+  if (!b) return;
+  const id = b.dataset.id, a = b.dataset.a;
+  if (a === "delSub") S.subs = S.subs.filter(s => String(s.id) !== id);
+  if (a === "delMember") {
+    if (!confirm("Fjern medlemmet og alle deres abonnementer?")) return;
+    S.members = S.members.filter(m => m.id !== id);
+    S.subs = S.subs.filter(s => s.owner !== id);
+    S.requests = S.requests.filter(r => r.owner !== id);
+  }
+  if (a === "approve" || a === "deny") {
+    const r = S.requests.find(x => String(x.id) === id);
+    if (r && a === "approve") S.subs.push({ ...r, id:Date.now() });
+    S.requests = S.requests.filter(x => String(x.id) !== id);
+  }
+  if (a === "cancelReq") S.requests = S.requests.filter(x => String(x.id) !== id);
+  save(); render();
+});
+
+function render() {
+  if (!member(viewAs)) viewAs = "me";
+  if (filter !== "all" && filter !== "family" && !member(filter)) filter = "all";
+  const me = member(viewAs), parent = me.role === "voksen";
+
+  // Se som + filter + ejer-valg
+  $("viewAs").innerHTML = S.members.map(m => `<option value="${m.id}" ${m.id===viewAs?"selected":""}>${esc(m.name)} (${m.role})</option>`).join("");
+  $("filter").innerHTML = `<option value="all">Alle</option><option value="family" ${filter==="family"?"selected":""}>Hele familien (delt)</option>` +
+    S.members.map(m => `<option value="${m.id}" ${m.id===filter?"selected":""}>${esc(m.name)}</option>`).join("");
+  const prevOwner = $("owner").value;
+  $("owner").innerHTML = `<option value="family">Hele familien (delt)</option>` + S.members.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join("");
+  $("owner").value = [...$("owner").options].some(o => o.value === prevOwner) ? prevOwner : "me";
+
+  // Børnetilstand vs. forældretilstand
+  $("banner").hidden = parent;
+  $("banner").textContent = `Du ser appen som ${me.name}. Nye abonnementer sendes som anmodning til en forælder, som skal godkende dem.`;
+  $("familyCard").hidden = !parent;
+  $("ownerWrap").hidden = !parent; $("filterWrap").hidden = !parent;
+  $("tipsCard").hidden = !parent;
+  $("add").textContent = parent ? "Tilføj" : "Send anmodning";
+  $("addTitle").textContent = parent ? "Tilføj abonnement" : "Anmod om et abonnement";
+  $("lblMonth").textContent = parent ? "Pr. måned (hele husstanden)" : "Pr. måned (dine)";
+
+  // Synlige abonnementer
+  const visible = parent ? S.subs.filter(s => filter === "all" || s.owner === filter) : S.subs.filter(s => s.owner === me.id);
+  const m = visible.reduce((a,s) => a + monthly(s), 0);
+  $("month").textContent = kr(m); $("year").textContent = kr(m*12); $("count").textContent = visible.length;
+
+  // Familiemedlemmer med budget
+  $("members").innerHTML = S.members.map(p => {
+    const spent = S.subs.filter(s => s.owner === p.id).reduce((a,s) => a + monthly(s), 0);
+    const pct = p.budget > 0 ? Math.min(100, spent / p.budget * 100) : 0;
+    const over = p.budget > 0 && spent > p.budget;
+    return `<li><div class="grow"><strong>${esc(p.name)}</strong> <span class="tag">${p.role}</span>
+      <div class="muted">${kr(spent)} pr. md.${p.budget > 0 ? ` af ${kr(p.budget)} budget` : ""}${over ? ` <span class="over">· over budget!</span>` : ""}</div>
+      ${p.budget > 0 ? `<div class="bar"><i class="${over?"over":""}" style="width:${pct}%"></i></div>` : ""}</div>
+      ${p.id !== "me" ? `<button class="ghost" data-a="delMember" data-id="${p.id}" title="Fjern">✕</button>` : ""}</li>`;
+  }).join("");
+  const shared = S.subs.filter(s => s.owner === "family").reduce((a,s) => a + monthly(s), 0);
+  if (shared > 0) $("members").innerHTML += `<li><div><strong>Delte abonnementer</strong> <span class="tag">familie</span><div class="muted">${kr(shared)} pr. md.</div></div></li>`;
+
+  // Anmodninger
+  const reqs = parent ? S.requests : S.requests.filter(r => r.owner === me.id);
+  $("reqCard").hidden = reqs.length === 0;
+  $("reqTitle").textContent = parent ? `Afventer godkendelse (${reqs.length})` : "Dine anmodninger";
+  $("requests").innerHTML = reqs.map(r => {
+    const p = member(r.owner);
+    const spent = S.subs.filter(s => s.owner === r.owner).reduce((a,s) => a + monthly(s), 0);
+    const warn = p && p.budget > 0 && spent + monthly(r) > p.budget ? ` <span class="over">overskrider budget</span>` : "";
+    return `<li><div><strong>${esc(r.name)}</strong> – ${kr(r.price)}/${unit(r.interval)}
+      <div class="muted">${parent ? `Fra ${esc(ownerName(r.owner))}` : "Afventer en forælder"}${warn}</div></div>
+      <div class="acts">${parent ? `<button class="ok" data-a="approve" data-id="${r.id}">Godkend</button><button class="no" data-a="deny" data-id="${r.id}">Afvis</button>`
+        : `<button class="ghost" data-a="cancelReq" data-id="${r.id}">Træk tilbage</button>`}</div></li>`;
+  }).join("");
+
+  // Liste
+  const sorted = [...visible].sort((a,b) => a.next.localeCompare(b.next));
   $("list").innerHTML = sorted.length ? sorted.map(s => {
     const days = Math.ceil((new Date(s.next) - new Date(todayISO())) / 864e5);
     const when = days < 0 ? "forfalden" : days === 0 ? "i dag" : `om ${days} dage`;
-    return `<li><div><strong>${s.name}</strong><div class="muted">${s.next} · ${when}</div></div>
-      <div>${kr(s.price)} <span class="tag">${s.interval===1?"md.":s.interval===3?"kvartal":"år"}</span>
-      <button class="ghost" data-id="${s.id}">✕</button></div></li>`;
+    return `<li><div><strong>${esc(s.name)}</strong> ${parent ? `<span class="tag">${esc(ownerName(s.owner))}</span>` : ""}
+      <div class="muted">${s.next} · ${when}</div></div>
+      <div class="acts">${kr(s.price)} <span class="tag">${unit(s.interval)}</span>
+      ${parent ? `<button class="ghost" data-a="delSub" data-id="${s.id}">✕</button>` : ""}</div></li>`;
   }).join("") : `<li class="muted">Ingen abonnementer endnu.</li>`;
-  document.querySelectorAll("button[data-id]").forEach(b => b.onclick = () => {
-    subs = subs.filter(s => s.id !== Number(b.dataset.id)); save(); render();
-  });
 
-  // Tips: billigere alternativer i samme kategori + tilbud
-  const tips = [];
-  subs.forEach(s => {
-    CATALOG.filter(c => c.cat === s.cat && c.name !== s.name && c.price < monthly(s)).forEach(c => {
-      tips.push(`<li><div>Skift <strong>${s.name}</strong> → <strong>${c.name}</strong>
-        <div class="muted">${c.offer ? `<span class="tag">Annonce</span> ${c.offer}` : "Billigere alternativ"}</div></div>
-        <span class="save">−${kr((monthly(s)-c.price)*12)}/år</span></li>`);
+  // Tips (kun forældre – ingen annoncer til børn)
+  if (parent) {
+    const tips = [];
+    visible.forEach(s => {
+      CATALOG.filter(c => c.cat === s.cat && c.name !== s.name && c.price < monthly(s)).forEach(c => {
+        tips.push(`<li><div>Skift <strong>${esc(s.name)}</strong> → <strong>${c.name}</strong>
+          <div class="muted">${c.offer ? `<span class="tag">Annonce</span> ${c.offer}` : "Billigere alternativ"}</div></div>
+          <span class="save">−${kr((monthly(s)-c.price)*12)}/år</span></li>`);
+      });
     });
-  });
-  const owned = new Set(subs.map(s => s.name));
-  CATALOG.filter(c => c.offer && !owned.has(c.name)).forEach(c =>
-    tips.push(`<li><div><strong>${c.name}</strong><div class="muted"><span class="tag">Annonce</span> ${c.offer}</div></div></li>`));
-  $("tips").innerHTML = tips.join("") || `<li class="muted">Tilføj abonnementer for at få forslag.</li>`;
+    // Familietip: flere personer har samme tjeneste hver for sig
+    const byName = {};
+    S.subs.filter(s => s.owner !== "family").forEach(s => (byName[s.name] = byName[s.name] || []).push(s));
+    Object.entries(byName).filter(([, a]) => a.length > 1).forEach(([n, a]) => {
+      const sum = a.reduce((t,s) => t + monthly(s), 0);
+      tips.push(`<li><div><strong>${esc(n)}</strong> betales ${a.length} gange
+        <div class="muted">Overvej ét delt familieabonnement i stedet</div></div><span class="save">${kr(sum)}/md. i alt</span></li>`);
+    });
+    const owned = new Set(S.subs.map(s => s.name));
+    CATALOG.filter(c => c.offer && !owned.has(c.name)).forEach(c =>
+      tips.push(`<li><div><strong>${c.name}</strong><div class="muted"><span class="tag">Annonce</span> ${c.offer}</div></div></li>`));
+    $("tips").innerHTML = tips.join("") || `<li class="muted">Tilføj abonnementer for at få forslag.</li>`;
+  }
 }
 render();
 </script>

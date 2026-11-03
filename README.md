@@ -14,6 +14,7 @@ SubSaver samler alle brugerens abonnementer og viser, hvor pengene går hen – 
 - [x] **Kommende betalinger** – sorteret efter næste trækningsdato
 - [x] **Billigere alternativer** – forslag inden for samme kategori
 - [x] **Tilbud** – fx "3 måneder gratis på Viaplay" (sponsoreret/affiliate, tydeligt markeret)
+- [x] **Familie** – forældre styrer børns abonnementer, sætter budgetter og godkender anmodninger (se "Familiefunktion")
 - [ ] **Push-/mail-påmindelser** 1-3 dage før betaling og før gratisperioder udløber
 - [ ] **"Bruger du det?"-tjek** – markér abonnementer, du sjældent bruger, og se potentiel besparelse
 - [ ] **Prisstigningsalarm** – besked når en tjeneste hæver prisen
@@ -24,12 +25,22 @@ SubSaver samler alle brugerens abonnementer og viser, hvor pengene går hen – 
 - Del-abonnement-forslag (familie-/deleplaner) med besparelse
 - "Rotér i stedet for at beholde": forslag om at pause en streamingtjeneste og skifte måned for måned
 - Årlig sparerapport ("Du sparede 1.240 kr. i år")
-- Delt husstandsoverblik (par/familie)
+- Familieplaner: automatisk forslag om at slå flere enkeltabonnementer sammen
+
+## Familiefunktion
+- **Profiler:** Voksne og børn i samme husstand. Hver person har sine egne abonnementer og et valgfrit månedligt budget.
+- **Overblik for forældre:** Samlet husstandsudgift, udgift pr. person og advarsel, hvis et barn går over sit budget.
+- **Godkendelse:** Børn kan ikke selv oprette abonnementer, men sender en anmodning, som en forælder godkender eller afviser. Forælderen advarres, hvis godkendelsen sprænger budgettet.
+- **Delte abonnementer:** Marker et abonnement som "Hele familien", så det ikke tæller dobbelt.
+- **Spar-tip:** Appen foreslår ét familieabonnement, hvis flere i familien betaler for den samme tjeneste hver for sig.
+- **Børnevenligt:** Børneprofiler ser kun deres egne abonnementer og får aldrig vist annoncer eller sponsorerede tilbud.
+- **Prototype vs. rigtig app:** Prototypen har et "Se som"-valg til at teste børnevisningen og er ikke sikker. I den rigtige app styres roller af separate konti (Supabase Auth + Row Level Security), og forældre inviterer børn.
+- **Børn og persondata:** Der gælder særlige regler for børns persondata og samtykke (i Danmark 13 år). Tjek gældende regler, og få forældresamtykke på plads, før appen bruges af børn.
 
 ## Indtjening
 | Kilde | Beskrivelse |
 |---|---|
-| **Premium** (fx 29 kr./md.) | Ubegrænsede påmindelser, prisalarmer, bankforbindelse, husstandsdeling, sparerapport |
+| **Premium** (fx 29 kr./md.) | Ubegrænsede påmindelser, prisalarmer, bankforbindelse, flere familieprofiler, sparerapport |
 | **Affiliate/provision** | Provision når brugere tegner abonnement via vores anbefalinger/tilbud |
 | **Partneraftaler** | Eksklusive tilbud (fx gratis prøvemåneder) mod betaling pr. tilmelding |
 
@@ -57,7 +68,9 @@ Eksisterende apps (fx Rocket Money, Bobby, Subby) er mest internationale. SubSav
 ## Datastruktur (kort)
 - `services` – katalog: navn, kategori, logo, affiliate-link
 - `plans` – pris, interval, kommentar, sidst verificeret
-- `user_subscriptions` – bruger, service/plan, pris, interval, næste betalingsdato, sidst brugt, gratisperiode slutter
+- `households` / `household_members` – husstand, medlemmer, rolle (voksen/barn), månedligt budget
+- `subscription_requests` – børns anmodninger med status (afventer/godkendt/afvist)
+- `user_subscriptions` – bruger, ejer (person eller hele familien), service/plan, pris, interval, næste betalingsdato, sidst brugt, gratisperiode slutter
 - `offers` – tilbud, gyldighed, sponsoreret ja/nej
 - `reminders` – udsendte/planlagte påmindelser
 
